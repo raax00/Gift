@@ -5,18 +5,16 @@ on:
     branches:
       - main
       - master
-  workflow_dispatch: # Allows you to run it manually from the Actions tab
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # Updated to v4 ✅
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Updated to v4 ✅
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -26,7 +24,14 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable' # Yeh automatically latest stable flutter version lega
+          channel: 'stable'
+
+      # 🔥 YEH HAI 1000% FIX WALA STEP 🔥
+      # Yeh purane android folder ko delete karega aur latest Flutter ke hisaab se naya banayega
+      - name: Fix Unsupported Gradle Project
+        run: |
+          rm -rf android
+          flutter create . --platforms=android
 
       - name: Get Flutter dependencies
         run: flutter pub get
@@ -34,7 +39,6 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
 
-      # Updated to v4 ✅ (Yahi error de raha tha)
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
