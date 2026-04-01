@@ -1,40 +1,93 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Get saved theme preference
+  final prefs = await SharedPreferences.getInstance();
+  final isDarkMode = prefs.getBool('isDarkMode') ?? false;
+
+  runApp(MyApp(isDarkMode: isDarkMode));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+// Global Notifier to change theme from anywhere
+final ValueNotifier<bool> themeNotifier = ValueNotifier(false);
+
+class MyApp extends StatefulWidget {
+  final bool isDarkMode;
+  const MyApp({super.key, required this.isDarkMode});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    themeNotifier.value = widget.isDarkMode;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Share App',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primaryColor: const Color(0xFF6558F5), // Purple from UI
-        scaffoldBackgroundColor: const Color(0xFFF8F9FA),
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6558F5)),
-        useMaterial3: true,
-      ),
-      home: const SplashScreen(),
+    return ValueListenableBuilder<bool>(
+      valueListenable: themeNotifier,
+      builder: (context, isDark, child) {
+        return MaterialApp(
+          title: 'Share App',
+          debugShowCheckedModeBanner: false,
+          themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+          
+          // LIGHT THEME
+          theme: ThemeData(
+            primaryColor: const Color(0xFF6558F5),
+            scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFFF8F9FA),
+              foregroundColor: Colors.black,
+              elevation: 0,
+            ),
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF6558F5),
+              brightness: Brightness.light,
+            ),
+            useMaterial3: true,
+          ),
+
+          // DARK THEME
+          darkTheme: ThemeData(
+            primaryColor: const Color(0xFF6558F5),
+            scaffoldBackgroundColor: const Color(0xFF121212),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFF121212),
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF6558F5),
+              brightness: Brightness.dark,
+            ),
+            useMaterial3: true,
+          ),
+          home: const SplashScreen(),
+        );
+      },
     );
   }
 }
 
 // ==========================================
-// 1. SPLASH / ONBOARDING SCREEN
+// 1. SPLASH SCREEN
 // ==========================================
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -42,32 +95,25 @@ class SplashScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Spacer(),
-              // Placeholder for the top Illustration
               Container(
-                height: 250,
+                height: 200,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
                   shape: BoxShape.circle,
                 ),
                 child: const Center(
-                  child: Icon(Icons.card_giftcard, size: 100, color: Color(0xFF6558F5)),
+                  child: Icon(Icons.gamepad, size: 80, color: Color(0xFF6558F5)),
                 ),
               ),
               const SizedBox(height: 40),
-              const Text(
-                'A Better Way\nTo Share',
+              Text(
+                'Welcome To\nGame Store',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF2D2D4A),
+                  color: isDark ? Colors.white : const Color(0xFF2D2D4A),
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Upload your game screenshots and share them quickly and easily!',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Colors.grey),
               ),
               const Spacer(),
               SizedBox(
@@ -82,14 +128,9 @@ class SplashScreen extends StatelessWidget {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF6558F5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: const Text(
-                    'Get Started',
-                    style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
+                  child: const Text('Get Started', style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -101,7 +142,7 @@ class SplashScreen extends StatelessWidget {
 }
 
 // ==========================================
-// MAIN LAYOUT (WITH BOTTOM NAV BAR)
+// MAIN LAYOUT (BOTTOM NAV BAR)
 // ==========================================
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -112,11 +153,7 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> {
   int _currentIndex = 0;
-
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const UploadScreen(),
-  ];
+  final List<Widget> _screens = [const HomeScreen(), const UploadScreen()];
 
   @override
   Widget build(BuildContext context) {
@@ -125,10 +162,7 @@ class _MainLayoutState extends State<MainLayout> {
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: Color(0xFF6558F5),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
         ),
         child: BottomNavigationBar(
           backgroundColor: Colors.transparent,
@@ -137,11 +171,7 @@ class _MainLayoutState extends State<MainLayout> {
           unselectedItemColor: Colors.white54,
           currentIndex: _currentIndex,
           type: BottomNavigationBarType.fixed,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
+          onTap: (index) => setState(() => _currentIndex = index),
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
             BottomNavigationBarItem(icon: Icon(Icons.cloud_upload_outlined), label: 'Upload'),
@@ -153,19 +183,101 @@ class _MainLayoutState extends State<MainLayout> {
 }
 
 // ==========================================
-// 2. HOME SCREEN (GRID VIEW)
+// 2. HOME SCREEN (WITH BGMI PACKAGES)
 // ==========================================
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
+  // Toggle Theme Function
+  void _toggleTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    themeNotifier.value = !themeNotifier.value;
+    prefs.setBool('isDarkMode', themeNotifier.value);
+  }
+
+  // Show Package Details in Bottom Sheet
+  void _showPackageBottomSheet(BuildContext context, String title, List<Map<String, String>> packages) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1E1E2C) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(width: 50, height: 5, decoration: BoxDecoration(color: Colors.grey.shade400, borderRadius: BorderRadius.circular(10))),
+              ),
+              const SizedBox(height: 20),
+              Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              
+              // List of Packages
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: packages.length,
+                  itemBuilder: (context, index) {
+                    final pkg = packages[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF2C2C3E) : const Color(0xFFF3E8FF),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFF6558F5).withOpacity(0.3)),
+                      ),
+                      child: ListTile(
+                        leading: const Icon(Icons.local_fire_department, color: Color(0xFF6558F5), size: 30),
+                        title: Text(pkg['amount']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        subtitle: Text(pkg['price']!, style: TextStyle(color: Colors.grey.shade600)),
+                        trailing: ElevatedButton(
+                          onPressed: () {},
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF6558F5),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Text('Buy', style: TextStyle(color: Colors.white)),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('What Do You Want To Share?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        centerTitle: true,
+        title: const Text('What Do You Want ...', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         leading: const Icon(Icons.menu),
-        actions: const [Padding(padding: EdgeInsets.only(right: 16.0), child: Icon(Icons.shopping_cart_outlined))],
+        actions: [
+          // Light/Dark Mode Toggle Icon
+          IconButton(
+            icon: Icon(isDark ? Icons.wb_sunny : Icons.nightlight_round),
+            onPressed: _toggleTheme,
+            color: isDark ? Colors.amber : Colors.black87,
+          ),
+          // Cart Icon
+          const Padding(
+            padding: EdgeInsets.only(right: 16.0),
+            child: Icon(Icons.shopping_cart_outlined),
+          ),
+        ],
       ),
       body: GridView.count(
         padding: const EdgeInsets.all(16),
@@ -174,32 +286,86 @@ class HomeScreen extends StatelessWidget {
         mainAxisSpacing: 16,
         childAspectRatio: 0.8,
         children: [
-          _buildItemCard('PUBG Screenshot', 'Epic Win', Icons.gamepad),
-          _buildItemCard('FreeFire Shot', 'Booyah!', Icons.sports_esports),
-          _buildItemCard('COD Mobile', 'MVP', Icons.stars),
-          _buildItemCard('Other Game', 'High Score', Icons.emoji_events),
+          // BGMI Popularity Card
+          _buildItemCard(
+            context: context,
+            title: 'BGMI\nPopularity',
+            subtitle: 'Epic Win',
+            icon: Icons.local_fire_department,
+            isDark: isDark,
+            onTap: () {
+              _showPackageBottomSheet(context, 'BGMI Popularity Packages', [
+                {'amount': '100K Popularity', 'price': '₹100'},
+                {'amount': '500K Popularity', 'price': '₹450'},
+                {'amount': '1M Popularity', 'price': '₹800'},
+              ]);
+            },
+          ),
+          // BGMI UC Card
+          _buildItemCard(
+            context: context,
+            title: 'BGMI UC',
+            subtitle: 'Top Up',
+            icon: Icons.monetization_on,
+            isDark: isDark,
+            onTap: () {
+              _showPackageBottomSheet(context, 'BGMI UC Packages', [
+                {'amount': '60 UC', 'price': '₹75'},
+                {'amount': '325 UC', 'price': '₹380'},
+                {'amount': '660 UC', 'price': '₹750'},
+              ]);
+            },
+          ),
+          // FreeFire Card
+          _buildItemCard(context: context, title: 'FreeFire Shot', subtitle: 'Booyah!', icon: Icons.sports_esports, isDark: isDark, onTap: () {}),
+          // COD Mobile Card
+          _buildItemCard(context: context, title: 'COD Mobile', subtitle: 'MVP', icon: Icons.stars, isDark: isDark, onTap: () {}),
         ],
       ),
     );
   }
 
-  Widget _buildItemCard(String title, String subtitle, IconData icon) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3E8FF), // Light purple background from UI
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Align(alignment: Alignment.topRight, child: Icon(Icons.favorite_border, color: Colors.purple.shade300, size: 20)),
-            Center(child: Icon(icon, size: 60, color: const Color(0xFF6558F5))),
-            const Spacer(),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            Text(subtitle, style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
-          ],
+  // Exact Card shape matching your screenshot
+  Widget _buildItemCard({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2C2C3E) : const Color(0xFFF4EBFF), // Matching screenshot background
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Align(
+                alignment: Alignment.topRight,
+                child: Icon(Icons.favorite_border, color: const Color(0xFF9E77ED), size: 24),
+              ),
+              Expanded(
+                child: Center(
+                  child: Icon(icon, size: 65, color: const Color(0xFF6558F5)),
+                ),
+              ),
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, height: 1.2),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade600, fontSize: 13),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -207,7 +373,7 @@ class HomeScreen extends StatelessWidget {
 }
 
 // ==========================================
-// 3. UPLOAD SCREEN (SCREENSHOT UPLOAD)
+// 3. UPLOAD SCREEN
 // ==========================================
 class UploadScreen extends StatefulWidget {
   const UploadScreen({super.key});
@@ -231,11 +397,14 @@ class _UploadScreenState extends State<UploadScreen> {
 
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF6558F5),
         title: const Text('Upload Screenshot', style: TextStyle(color: Colors.white, fontSize: 18)),
         centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -244,23 +413,22 @@ class _UploadScreenState extends State<UploadScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'Upload Your Game Screenshot\nTo Share With Friends',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
               ),
               const SizedBox(height: 40),
               
-              // Upload Box
               GestureDetector(
                 onTap: _pickImage,
                 child: Container(
                   height: 300,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF0E6), // Light orange/peach from UI
+                    color: isDark ? const Color(0xFF2C2C3E) : const Color(0xFFFFF0E6),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.orange.shade200, width: 2, style: BorderStyle.solid),
+                    border: Border.all(color: const Color(0xFF6558F5).withOpacity(0.5), width: 2, style: BorderStyle.dash),
                   ),
                   child: _imageFile != null
                       ? ClipRRect(
@@ -272,7 +440,7 @@ class _UploadScreenState extends State<UploadScreen> {
                           children: [
                             const Icon(Icons.cloud_upload_outlined, size: 60, color: Color(0xFF6558F5)),
                             const SizedBox(height: 16),
-                            const Text('Tap to Upload Screenshot', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            Text('Tap to Upload Screenshot', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black)),
                             const SizedBox(height: 8),
                             Text('Browse Gallery', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
                           ],
@@ -281,7 +449,6 @@ class _UploadScreenState extends State<UploadScreen> {
               ),
               const SizedBox(height: 40),
               
-              // Browse Button
               SizedBox(
                 width: double.infinity,
                 height: 55,
