@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/game_product.dart';
+import '../data/game_data.dart';
 import '../providers/order_provider.dart';
 import 'payment_screen.dart';
 
@@ -27,7 +28,6 @@ class _UcPackagesScreenState extends State<UcPackagesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Package selector
             const Text('Select UC Package', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             GridView.builder(
@@ -68,7 +68,6 @@ class _UcPackagesScreenState extends State<UcPackagesScreen> {
               },
             ),
             const SizedBox(height: 24),
-            // Game ID Input
             const Text('Enter Game ID', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextField(
@@ -81,7 +80,6 @@ class _UcPackagesScreenState extends State<UcPackagesScreen> {
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 16),
-            // Description
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(12)),
@@ -91,7 +89,6 @@ class _UcPackagesScreenState extends State<UcPackagesScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            // Proceed Button
             SizedBox(
               width: double.infinity,
               height: 50,
