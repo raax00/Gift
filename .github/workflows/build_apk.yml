@@ -12,13 +12,28 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+
       - name: Clean & Re-create
         run: |
           rm -rf android
           flutter create . --platforms=android
+
+      - name: Auto Add Permissions
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          # Adding location and internet permissions automatically
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' $MANIFEST
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' $MANIFEST
+
       - run: flutter pub get
       - run: flutter build apk --release
-      - uses: actions/upload-artifact@v4
+
+      - name: Move APK to Root
+        run: cp build/app/outputs/flutter-apk/app-release.apk ./XSale_Build.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: XSale-Final-APK
+          path: XSale_Build.apk
