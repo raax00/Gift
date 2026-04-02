@@ -9,14 +9,15 @@ import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
-  runApp(XSaleApp(prefs: prefs));
+  runApp(XSaleApp(prefs: prefs)); // Removed const
 }
 
 final themeNotifier = ValueNotifier<bool>(false);
 
 class XSaleApp extends StatelessWidget {
   final SharedPreferences prefs;
-  const XSaleApp({super.key, required this.prefs}) {
+  XSaleApp({super.key, required this.prefs}) {
+    // Initialize theme based on saved preference
     themeNotifier.value = prefs.getBool('isDark') ?? false;
   }
 
