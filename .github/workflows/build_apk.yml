@@ -13,15 +13,15 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Clean & Re-create
+      - name: Clean & Re-create Android
         run: |
           rm -rf android
           flutter create . --platforms=android
 
-      - name: Auto Add Permissions
+      - name: Auto Inject Permissions
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          # Adding location and internet permissions automatically
+          # Adding essential permissions for location and internet
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' $MANIFEST
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' $MANIFEST
@@ -29,11 +29,11 @@ jobs:
       - run: flutter pub get
       - run: flutter build apk --release
 
-      - name: Move APK to Root
-        run: cp build/app/outputs/flutter-apk/app-release.apk ./XSale_Build.apk
+      - name: Move APK to Workspace Root
+        run: cp build/app/outputs/flutter-apk/app-release.apk ./XSale_Build_Final.apk
 
-      - name: Upload APK
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: XSale-Final-APK
-          path: XSale_Build.apk
+          name: Final-XSale-APK
+          path: XSale_Build_Final.apk
