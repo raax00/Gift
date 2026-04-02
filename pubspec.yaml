@@ -5,7 +5,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  geolocator: ^10.1.0 # Location detect karne ke liye
-  geocoding: ^2.1.1 # Address nikalne ke liye
+  provider: ^6.1.1
   shared_preferences: ^2.2.2
-  smooth_page_indicator: ^1.1.0 # Onboarding dots ke liye
+  geolocator: ^10.1.0
+  geocoding: ^2.1.1
+  smooth_page_indicator: ^1.1.0
+  cupertino_icons: ^1.0.6
