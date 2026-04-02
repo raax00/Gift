@@ -5,17 +5,18 @@ import 'providers/cart_provider.dart';
 import 'providers/chat_provider.dart';
 import 'screens/splash_screen.dart';
 
+// Global theme notifier (public so it can be accessed from other files)
+ValueNotifier<bool> themeNotifier = ValueNotifier(false);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
   runApp(MyApp(prefs: prefs));
 }
 
-final themeNotifier = ValueNotifier<bool>(false);
-
-class MyApp extends StatelessWidget {
+class MyApp extends StatelessWidget {  // Removed const from constructor
   final SharedPreferences prefs;
-  const MyApp({super.key, required this.prefs}) {
+  MyApp({super.key, required this.prefs}) {
     themeNotifier.value = prefs.getBool('isDark') ?? false;
   }
 
