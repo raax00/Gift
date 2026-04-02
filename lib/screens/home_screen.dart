@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart'; // For CupertinoIcons
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/product.dart';
 import '../providers/cart_provider.dart';
 import 'product_detail_screen.dart';
 import 'cart_screen.dart';
 import 'chat_screen.dart';
 import 'profile_screen.dart';
+import '../main.dart'; // Import to access themeNotifier
 
 List<Product> products = [
   Product(
