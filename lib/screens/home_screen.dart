@@ -6,7 +6,6 @@ import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
 import '../data/game_data.dart';
-import '../models/game_product.dart';
 import 'uc_packages_screen.dart';
 import 'popularity_packages_screen.dart';
 import 'contact_screen.dart';
@@ -67,8 +66,8 @@ class _HomeScreenState extends State<HomeScreen> {
             _buildHomeContent(isDark),
             const Center(child: Text('Chat - Coming Soon')),
             const Center(child: Text('Sell - Coming Soon')),
-            const OrdersScreen(),        // removed const
-            const ProfileScreen(),       // removed const
+            const OrdersScreen(),
+            const ProfileScreen(),
           ],
         ),
       ),
@@ -137,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          // Banner Carousel (fixed – no explicit CarouselController)
+          // Banner Carousel
           CarouselSlider(
             options: CarouselOptions(
               height: 180,
