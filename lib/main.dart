@@ -3,9 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/cart_provider.dart';
 import 'providers/chat_provider.dart';
+import 'providers/order_provider.dart';
 import 'screens/splash_screen.dart';
 
-// Global theme notifier (public so it can be accessed from other files)
 ValueNotifier<bool> themeNotifier = ValueNotifier(false);
 
 void main() async {
@@ -14,7 +14,7 @@ void main() async {
   runApp(MyApp(prefs: prefs));
 }
 
-class MyApp extends StatelessWidget {  // Removed const from constructor
+class MyApp extends StatelessWidget {
   final SharedPreferences prefs;
   MyApp({super.key, required this.prefs}) {
     themeNotifier.value = prefs.getBool('isDark') ?? false;
@@ -26,13 +26,14 @@ class MyApp extends StatelessWidget {  // Removed const from constructor
       providers: [
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => OrderProvider()),
       ],
       child: ValueListenableBuilder<bool>(
         valueListenable: themeNotifier,
         builder: (_, isDark, __) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            title: 'XSale',
+            title: 'Dream Store',
             themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
             theme: ThemeData(
               useMaterial3: true,
