@@ -1,67 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart'; // For CupertinoIcons
+import 'package:flutter/cupertino.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/product.dart';
-import '../providers/cart_provider.dart';
-import 'product_detail_screen.dart';
-import 'cart_screen.dart';
-import 'chat_screen.dart';
-import 'profile_screen.dart';
-import '../main.dart'; // Import to access themeNotifier
-
-List<Product> products = [
-  Product(
-    id: '1',
-    name: 'Maruti Suzuki Swift',
-    price: 436000,
-    description: 'The Maruti Suzuki Swift is a popular hatchback known for its sporty design, fuel efficiency, and peppy engine.',
-    imageUrl: 'https://picsum.photos/id/111/300/200',
-    category: 'Hatchback',
-  ),
-  Product(
-    id: '2',
-    name: 'Hyundai i20',
-    price: 520000,
-    description: 'Premium hatchback with stylish design, feature-rich interior, and refined engine options.',
-    imageUrl: 'https://picsum.photos/id/112/300/200',
-    category: 'Hatchback',
-  ),
-  Product(
-    id: '3',
-    name: 'Honda City',
-    price: 1100000,
-    description: 'The Honda City is a class-leading sedan with a spacious cabin, comfortable ride, and reliable performance.',
-    imageUrl: 'https://picsum.photos/id/113/300/200',
-    category: 'Sedan',
-  ),
-  Product(
-    id: '4',
-    name: 'Mahindra Thar',
-    price: 1350000,
-    description: 'Rugged off-road SUV with iconic design, powerful engine, and unmatched capability.',
-    imageUrl: 'https://picsum.photos/id/114/300/200',
-    category: 'SUV',
-  ),
-  Product(
-    id: '5',
-    name: 'Tata Nexon',
-    price: 820000,
-    description: 'Compact SUV with bold design, 5-star safety rating, and excellent driving dynamics.',
-    imageUrl: 'https://picsum.photos/id/115/300/200',
-    category: 'SUV',
-  ),
-  Product(
-    id: '6',
-    name: 'Kia Seltos',
-    price: 980000,
-    description: 'Feature-packed compact SUV with striking looks, premium interior, and multiple engine choices.',
-    imageUrl: 'https://picsum.photos/id/116/300/200',
-    category: 'SUV',
-  ),
-];
+import '../main.dart';
+import 'uc_packages_screen.dart';
+import 'popularity_packages_screen.dart';
+import 'contact_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -74,6 +20,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   String location = 'Detecting location...';
   bool _loadingLocation = true;
+  final List<String> bannerImages = [
+    'https://picsum.photos/id/1015/400/200', // landscape
+    'https://picsum.photos/id/1018/400/200',
+    'https://picsum.photos/id/104/400/200',
+  ];
 
   @override
   void initState() {
@@ -104,87 +55,21 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final crossAxisCount = screenWidth > 600 ? 3 : 2;
-
     return Scaffold(
       body: SafeArea(
-        child: Column(
+        child: IndexedStack(
+          index: _currentIndex,
           children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  CircleAvatar(backgroundColor: const Color(0xFF0097A7).withOpacity(0.2), child: const Icon(Icons.person, color: Color(0xFF0097A7))),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Hello, Shamir!', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                        Text('Welcome back', style: TextStyle(color: Colors.grey.shade600)),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-                    onPressed: () async {
-                      themeNotifier.value = !themeNotifier.value;
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.setBool('isDark', themeNotifier.value);
-                    },
-                  ),
-                ],
-              ),
-            ),
-            // Location
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(color: isDark ? Colors.grey.shade800 : Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.location_on_outlined, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(_loadingLocation ? 'Updating...' : location, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
-                    IconButton(icon: const Icon(Icons.refresh, size: 18), onPressed: _getCurrentLocation, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-                  ],
-                ),
-              ),
-            ),
-            // Main content based on index
-            Expanded(
-              child: IndexedStack(
-                index: _currentIndex,
-                children: [
-                  // Home - Product Grid
-                  GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      childAspectRatio: 0.75,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                    ),
-                    itemCount: products.length,
-                    itemBuilder: (context, index) {
-                      final product = products[index];
-                      return _ProductCard(product: product);
-                    },
-                  ),
-                  // Chat
-                  const ChatScreen(),
-                  // Sell (placeholder)
-                  const Center(child: Text('Sell Screen - Coming Soon')),
-                  // Listings (placeholder)
-                  const Center(child: Text('My Listings - Coming Soon')),
-                  // Profile
-                  const ProfileScreen(),
-                ],
-              ),
-            ),
+            // Home page (gaming store)
+            _buildHomeContent(isDark),
+            // Chat (placeholder)
+            const Center(child: Text('Chat - Coming Soon')),
+            // Sell (placeholder)
+            const Center(child: Text('Sell - Coming Soon')),
+            // Orders
+            const OrdersScreen(),
+            // Profile
+            const ProfileScreen(),
           ],
         ),
       ),
@@ -198,52 +83,210 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(icon: Icon(CupertinoIcons.house), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(CupertinoIcons.chat_bubble), label: 'Chat'),
           BottomNavigationBarItem(icon: Icon(CupertinoIcons.add), label: 'Sell'),
-          BottomNavigationBarItem(icon: Icon(CupertinoIcons.list_bullet), label: 'Listings'),
+          BottomNavigationBarItem(icon: Icon(CupertinoIcons.list_bullet), label: 'Orders'),
           BottomNavigationBarItem(icon: Icon(CupertinoIcons.person), label: 'Profile'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeContent(bool isDark) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                CircleAvatar(backgroundColor: const Color(0xFF0097A7).withOpacity(0.2), child: const Icon(Icons.store, color: Color(0xFF0097A7))),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Dream Store', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                      Text('24/7 Support', style: TextStyle(color: Colors.grey.shade600)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+                  onPressed: () async {
+                    themeNotifier.value = !themeNotifier.value;
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool('isDark', themeNotifier.value);
+                  },
+                ),
+              ],
+            ),
+          ),
+          // Location
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(color: isDark ? Colors.grey.shade800 : Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_on_outlined, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_loadingLocation ? 'Updating...' : location, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+                  IconButton(icon: const Icon(Icons.refresh, size: 18), onPressed: _getCurrentLocation, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                ],
+              ),
+            ),
+          ),
+          // Banner Carousel
+          CarouselSlider(
+            options: CarouselOptions(
+              height: 180,
+              autoPlay: true,
+              enlargeCenterPage: true,
+              viewportFraction: 0.9,
+              aspectRatio: 16/9,
+              autoPlayInterval: const Duration(seconds: 3),
+            ),
+            items: bannerImages.map((url) => ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(url, fit: BoxFit.cover, width: double.infinity, errorBuilder: (_, __, ___) => Container(color: Colors.grey)),
+            )).toList(),
+          ),
+          const SizedBox(height: 20),
+          // BGMI UC Section
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('BGMI UC', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                TextButton(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UcPackagesScreen())),
+                  child: const Text('View All >', style: TextStyle(color: Color(0xFF0097A7))),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 120,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemCount: ucPackages.length,
+              itemBuilder: (context, index) {
+                final pkg = ucPackages[index];
+                return GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => UcPackagesScreen(initialIndex: index))),
+                  child: Container(
+                    width: 140,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey.shade800 : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(pkg.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text('${pkg.amount} UC', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0097A7))),
+                        const SizedBox(height: 4),
+                        Text('₹${pkg.price}', style: const TextStyle(fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
+          // BGMI Popularity Section
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('BGMI Popularity', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                TextButton(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PopularityPackagesScreen())),
+                  child: const Text('View All >', style: TextStyle(color: Color(0xFF0097A7))),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 120,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemCount: popularityPackages.length,
+              itemBuilder: (context, index) {
+                final pkg = popularityPackages[index];
+                return GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PopularityPackagesScreen(initialIndex: index))),
+                  child: Container(
+                    width: 140,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey.shade800 : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(pkg.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text('${pkg.amount} pts', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange)),
+                        const SizedBox(height: 4),
+                        Text('₹${pkg.price}', style: const TextStyle(fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Contact Card
+          Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: ListTile(
+              leading: const Icon(Icons.headset_mic, color: Color(0xFF0097A7)),
+              title: const Text('Contact Us'),
+              subtitle: const Text('24/7 Support - Dream Store'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactScreen())),
+            ),
+          ),
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
 }
 
-class _ProductCard extends StatelessWidget {
-  final Product product;
-  const _ProductCard({required this.product});
+// Sample data (you can move to separate file)
+final List<GameProduct> ucPackages = [
+  GameProduct(id: 'uc1', name: '60 UC', type: 'uc', amount: 60, price: 75),
+  GameProduct(id: 'uc2', name: '325 UC', type: 'uc', amount: 325, price: 380, bonus: '+25 Bonus'),
+  GameProduct(id: 'uc3', name: '660 UC', type: 'uc', amount: 660, price: 750, bonus: '+60 Bonus'),
+  GameProduct(id: 'uc4', name: '1800 UC', type: 'uc', amount: 1800, price: 1900, bonus: '+300 Bonus'),
+  GameProduct(id: 'uc5', name: '3850 UC', type: 'uc', amount: 3850, price: 3800, bonus: '+850 Bonus'),
+  GameProduct(id: 'uc6', name: '8100 UC', type: 'uc', amount: 8100, price: 7500, bonus: '+2100 Bonus'),
+];
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailScreen(product: product))),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? Colors.grey.shade800 : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                child: Image.network(product.imageUrl, fit: BoxFit.cover, width: double.infinity, errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade200, child: const Icon(Icons.image_not_supported, size: 50))),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 4),
-                  Text('₹ ${product.price.toStringAsFixed(0)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0097A7))),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+final List<GameProduct> popularityPackages = [
+  GameProduct(id: 'pop1', name: '100 Popularity', type: 'popularity', amount: 100, price: 150),
+  GameProduct(id: 'pop2', name: '200 Popularity', type: 'popularity', amount: 200, price: 280),
+  GameProduct(id: 'pop3', name: '500 Popularity', type: 'popularity', amount: 500, price: 650),
+  GameProduct(id: 'pop4', name: '1000 Popularity', type: 'popularity', amount: 1000, price: 1200),
+  GameProduct(id: 'pop5', name: '2000 Popularity', type: 'popularity', amount: 2000, price: 2300),
+];
