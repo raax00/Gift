@@ -5,9 +5,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.6
-  image_picker: ^1.0.7
+  geolocator: ^10.1.0 # Location detect karne ke liye
+  geocoding: ^2.1.1 # Address nikalne ke liye
   shared_preferences: ^2.2.2
-
-flutter:
-  uses-material-design: true
+  smooth_page_indicator: ^1.1.0 # Onboarding dots ke liye
