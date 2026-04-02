@@ -5,9 +5,13 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
+import '../data/game_data.dart';
+import '../models/game_product.dart';
 import 'uc_packages_screen.dart';
 import 'popularity_packages_screen.dart';
 import 'contact_screen.dart';
+import 'orders_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String location = 'Detecting location...';
   bool _loadingLocation = true;
   final List<String> bannerImages = [
-    'https://picsum.photos/id/1015/400/200', // landscape
+    'https://picsum.photos/id/1015/400/200',
     'https://picsum.photos/id/1018/400/200',
     'https://picsum.photos/id/104/400/200',
   ];
@@ -60,16 +64,11 @@ class _HomeScreenState extends State<HomeScreen> {
         child: IndexedStack(
           index: _currentIndex,
           children: [
-            // Home page (gaming store)
             _buildHomeContent(isDark),
-            // Chat (placeholder)
             const Center(child: Text('Chat - Coming Soon')),
-            // Sell (placeholder)
             const Center(child: Text('Sell - Coming Soon')),
-            // Orders
-            const OrdersScreen(),
-            // Profile
-            const ProfileScreen(),
+            const OrdersScreen(),        // removed const
+            const ProfileScreen(),       // removed const
           ],
         ),
       ),
@@ -138,14 +137,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          // Banner Carousel
+          // Banner Carousel (fixed – no explicit CarouselController)
           CarouselSlider(
             options: CarouselOptions(
               height: 180,
               autoPlay: true,
               enlargeCenterPage: true,
               viewportFraction: 0.9,
-              aspectRatio: 16/9,
+              aspectRatio: 16 / 9,
               autoPlayInterval: const Duration(seconds: 3),
             ),
             items: bannerImages.map((url) => ClipRRect(
@@ -272,21 +271,3 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
-// Sample data (you can move to separate file)
-final List<GameProduct> ucPackages = [
-  GameProduct(id: 'uc1', name: '60 UC', type: 'uc', amount: 60, price: 75),
-  GameProduct(id: 'uc2', name: '325 UC', type: 'uc', amount: 325, price: 380, bonus: '+25 Bonus'),
-  GameProduct(id: 'uc3', name: '660 UC', type: 'uc', amount: 660, price: 750, bonus: '+60 Bonus'),
-  GameProduct(id: 'uc4', name: '1800 UC', type: 'uc', amount: 1800, price: 1900, bonus: '+300 Bonus'),
-  GameProduct(id: 'uc5', name: '3850 UC', type: 'uc', amount: 3850, price: 3800, bonus: '+850 Bonus'),
-  GameProduct(id: 'uc6', name: '8100 UC', type: 'uc', amount: 8100, price: 7500, bonus: '+2100 Bonus'),
-];
-
-final List<GameProduct> popularityPackages = [
-  GameProduct(id: 'pop1', name: '100 Popularity', type: 'popularity', amount: 100, price: 150),
-  GameProduct(id: 'pop2', name: '200 Popularity', type: 'popularity', amount: 200, price: 280),
-  GameProduct(id: 'pop3', name: '500 Popularity', type: 'popularity', amount: 500, price: 650),
-  GameProduct(id: 'pop4', name: '1000 Popularity', type: 'popularity', amount: 1000, price: 1200),
-  GameProduct(id: 'pop5', name: '2000 Popularity', type: 'popularity', amount: 2000, price: 2300),
-];
