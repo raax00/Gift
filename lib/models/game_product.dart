@@ -2,9 +2,9 @@ class GameProduct {
   final String id;
   final String name;
   final String type; // 'uc' or 'popularity'
-  final int amount;  // UC amount or popularity points
+  final int amount;
   final int price;
-  final String? bonus; // optional bonus text
+  final String? bonus;
 
   GameProduct({
     required this.id,
