@@ -1,6 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:carousel_slider/carousel_slider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,16 +23,42 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   String location = 'Detecting location...';
   bool _loadingLocation = true;
+
+  // Banner carousel data
   final List<String> bannerImages = [
     'https://picsum.photos/id/1015/400/200',
     'https://picsum.photos/id/1018/400/200',
     'https://picsum.photos/id/104/400/200',
   ];
+  final PageController _bannerController = PageController();
+  int _currentBanner = 0;
+  Timer? _bannerTimer;
 
   @override
   void initState() {
     super.initState();
     _getCurrentLocation();
+    _startBannerAutoPlay();
+  }
+
+  @override
+  void dispose() {
+    _bannerTimer?.cancel();
+    _bannerController.dispose();
+    super.dispose();
+  }
+
+  void _startBannerAutoPlay() {
+    _bannerTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (_bannerController.hasClients) {
+        final nextPage = (_currentBanner + 1) % bannerImages.length;
+        _bannerController.animateToPage(
+          nextPage,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
   }
 
   Future<void> _getCurrentLocation() async {
@@ -136,20 +162,47 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          // Banner Carousel
-          CarouselSlider(
-            options: CarouselOptions(
-              height: 180,
-              autoPlay: true,
-              enlargeCenterPage: true,
-              viewportFraction: 0.9,
-              aspectRatio: 16 / 9,
-              autoPlayInterval: const Duration(seconds: 3),
+          // Manual Banner Carousel (no external dependency)
+          SizedBox(
+            height: 180,
+            child: Stack(
+              alignment: Alignment.bottomCenter,
+              children: [
+                PageView.builder(
+                  controller: _bannerController,
+                  onPageChanged: (index) => setState(() => _currentBanner = index),
+                  itemCount: bannerImages.length,
+                  itemBuilder: (context, index) => ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      bannerImages[index],
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      errorBuilder: (_, __, ___) => Container(color: Colors.grey),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 8,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      bannerImages.length,
+                      (index) => AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        width: _currentBanner == index ? 20 : 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: _currentBanner == index ? const Color(0xFF0097A7) : Colors.grey.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            items: bannerImages.map((url) => ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.network(url, fit: BoxFit.cover, width: double.infinity, errorBuilder: (_, __, ___) => Container(color: Colors.grey)),
-            )).toList(),
           ),
           const SizedBox(height: 20),
           // BGMI UC Section
