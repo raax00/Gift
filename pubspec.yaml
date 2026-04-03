@@ -15,9 +15,12 @@ dependencies:
   geocoding: ^2.1.1
   smooth_page_indicator: ^1.1.0
   cupertino_icons: ^1.0.6
-  # carousel_slider: ^4.0.0   # REMOVED – causes conflict
   qr_flutter: ^4.1.0
   url_launcher: ^6.2.5
+  image_picker: ^1.0.5          # for picking screenshots
+  dio: ^5.4.0                   # for Cloudinary upload
+  http: ^1.2.0                  # fallback for upload
+  permission_handler: ^11.0.0  # for camera/gallery permissions
 
 dev_dependencies:
   flutter_test:
