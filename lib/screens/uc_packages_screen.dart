@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/game_product.dart';
@@ -49,40 +50,22 @@ class _UcPackagesScreenState extends State<UcPackagesScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-
     final selectedPkg = _packages[_selectedIndex];
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('BGMI UC Packages'),
-        centerTitle: true,
-        backgroundColor: const Color(0xFF0097A7),
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('BGMI UC Packages'), centerTitle: true, backgroundColor: const Color(0xFF0097A7), foregroundColor: Colors.white),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Package grid
-            const Text(
-              'Select UC Package',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const Text('Select UC Package', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 1.5,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.5, crossAxisSpacing: 12, mainAxisSpacing: 12),
               itemCount: _packages.length,
               itemBuilder: (context, index) {
                 final pkg = _packages[index];
@@ -91,14 +74,8 @@ class _UcPackagesScreenState extends State<UcPackagesScreen> {
                   onTap: () => setState(() => _selectedIndex = index),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF0097A7).withOpacity(0.1)
-                          : null,
-                      border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFF0097A7)
-                            : Colors.grey.shade300,
-                      ),
+                      color: isSelected ? const Color(0xFF0097A7).withOpacity(0.1) : null,
+                      border: Border.all(color: isSelected ? const Color(0xFF0097A7) : Colors.grey.shade300),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Padding(
@@ -106,26 +83,10 @@ class _UcPackagesScreenState extends State<UcPackagesScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            pkg.name,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          if (pkg.bonus != null)
-                            Text(
-                              pkg.bonus!,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.green,
-                              ),
-                            ),
+                          Text(pkg.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          if (pkg.bonus != null) Text(pkg.bonus!, style: const TextStyle(fontSize: 12, color: Colors.green)),
                           const SizedBox(height: 4),
-                          Text(
-                            '₹${pkg.price}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0097A7),
-                            ),
-                          ),
+                          Text('₹${pkg.price}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0097A7))),
                         ],
                       ),
                     ),
@@ -134,43 +95,20 @@ class _UcPackagesScreenState extends State<UcPackagesScreen> {
               },
             ),
             const SizedBox(height: 24),
-
-            // Game ID input
-            const Text(
-              'Enter Game ID',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const Text('Enter Game ID', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextField(
               controller: _gameIdController,
-              decoration: InputDecoration(
-                hintText: 'Your BGMI User ID',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: const Icon(Icons.person),
-              ),
+              decoration: InputDecoration(hintText: 'Your BGMI User ID', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), prefixIcon: const Icon(Icons.person)),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 16),
-
-            // Info note
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text(
-                'Note: If the QR code does not accept payments above ₹2000, '
-                'scan it using another phone\'s camera or add money to your '
-                'wallet multiple times and pay via wallet.',
-                style: TextStyle(fontSize: 12, color: Colors.brown),
-              ),
+              decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(12)),
+              child: const Text('Note: If the QR code does not accept payments above ₹2000, scan it using another phone\'s camera or add money to your wallet multiple times and pay via wallet.', style: TextStyle(fontSize: 12, color: Colors.brown)),
             ),
             const SizedBox(height: 24),
-
-            // Proceed button
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -178,31 +116,13 @@ class _UcPackagesScreenState extends State<UcPackagesScreen> {
                 onPressed: () {
                   final gameId = _gameIdController.text.trim();
                   if (gameId.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please enter Game ID')),
-                    );
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter Game ID')));
                     return;
                   }
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => PaymentScreen(
-                        product: selectedPkg,
-                        gameId: gameId,
-                      ),
-                    ),
-                  );
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentScreen(product: selectedPkg, gameId: gameId)));
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0097A7),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Proceed to Payment',
-                  style: TextStyle(fontSize: 16),
-                ),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0097A7), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                child: const Text('Proceed to Payment', style: TextStyle(fontSize: 16)),
               ),
             ),
           ],
