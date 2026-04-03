@@ -1,34 +1,78 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/game_product.dart';
-import '../data/game_data.dart';
-import '../providers/order_provider.dart';
+import '../supabase_config.dart';
 import 'payment_screen.dart';
 
 class UcPackagesScreen extends StatefulWidget {
-  final int initialIndex;
-  const UcPackagesScreen({super.key, this.initialIndex = 0});
+  final List<GameProduct>? initialProducts;
+  const UcPackagesScreen({super.key, this.initialProducts});
 
   @override
   State<UcPackagesScreen> createState() => _UcPackagesScreenState();
 }
 
 class _UcPackagesScreenState extends State<UcPackagesScreen> {
-  late final List<GameProduct> packages = ucPackages;
-  late int selectedIndex = widget.initialIndex;
+  late List<GameProduct> _packages;
+  int _selectedIndex = 0;
   final TextEditingController _gameIdController = TextEditingController();
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialProducts != null) {
+      _packages = widget.initialProducts!;
+      _loading = false;
+    } else {
+      _fetchPackages();
+    }
+  }
+
+  Future<void> _fetchPackages() async {
+    final response = await SupabaseConfig.client
+        .from('products')
+        .select()
+        .eq('type', 'uc')
+        .order('price', ascending: true);
+    _packages = (response as List).map((json) => GameProduct(
+      id: json['id'],
+      name: json['name'],
+      type: json['type'],
+      amount: json['amount'],
+      price: json['price'],
+      bonus: json['bonus'],
+    )).toList();
+    setState(() => _loading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final selectedPkg = packages[selectedIndex];
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final selectedPkg = _packages[_selectedIndex];
+
     return Scaffold(
-      appBar: AppBar(title: const Text('BGMI UC Packages'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('BGMI UC Packages'),
+        centerTitle: true,
+        backgroundColor: const Color(0xFF0097A7),
+        foregroundColor: Colors.white,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Select UC Package', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            // Package grid
+            const Text(
+              'Select UC Package',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 12),
             GridView.builder(
               shrinkWrap: true,
@@ -39,16 +83,22 @@ class _UcPackagesScreenState extends State<UcPackagesScreen> {
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
               ),
-              itemCount: packages.length,
+              itemCount: _packages.length,
               itemBuilder: (context, index) {
-                final pkg = packages[index];
-                final isSelected = selectedIndex == index;
+                final pkg = _packages[index];
+                final isSelected = _selectedIndex == index;
                 return GestureDetector(
-                  onTap: () => setState(() => selectedIndex = index),
+                  onTap: () => setState(() => _selectedIndex = index),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF0097A7).withOpacity(0.1) : null,
-                      border: Border.all(color: isSelected ? const Color(0xFF0097A7) : Colors.grey.shade300),
+                      color: isSelected
+                          ? const Color(0xFF0097A7).withOpacity(0.1)
+                          : null,
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xFF0097A7)
+                            : Colors.grey.shade300,
+                      ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Padding(
@@ -56,10 +106,26 @@ class _UcPackagesScreenState extends State<UcPackagesScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(pkg.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          if (pkg.bonus != null) Text(pkg.bonus!, style: const TextStyle(fontSize: 12, color: Colors.green)),
+                          Text(
+                            pkg.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          if (pkg.bonus != null)
+                            Text(
+                              pkg.bonus!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.green,
+                              ),
+                            ),
                           const SizedBox(height: 4),
-                          Text('₹${pkg.price}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0097A7))),
+                          Text(
+                            '₹${pkg.price}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0097A7),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -68,34 +134,53 @@ class _UcPackagesScreenState extends State<UcPackagesScreen> {
               },
             ),
             const SizedBox(height: 24),
-            const Text('Enter Game ID', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+
+            // Game ID input
+            const Text(
+              'Enter Game ID',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             TextField(
               controller: _gameIdController,
               decoration: InputDecoration(
                 hintText: 'Your BGMI User ID',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 prefixIcon: const Icon(Icons.person),
               ),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 16),
+
+            // Info note
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: const Text(
-                'Note: If the QR code does not accept payments above ₹2000, scan it using another phone\'s camera or add money to your wallet multiple times and pay via wallet.',
+                'Note: If the QR code does not accept payments above ₹2000, '
+                'scan it using another phone\'s camera or add money to your '
+                'wallet multiple times and pay via wallet.',
                 style: TextStyle(fontSize: 12, color: Colors.brown),
               ),
             ),
             const SizedBox(height: 24),
+
+            // Proceed button
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
                 onPressed: () {
-                  if (_gameIdController.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter Game ID')));
+                  final gameId = _gameIdController.text.trim();
+                  if (gameId.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please enter Game ID')),
+                    );
                     return;
                   }
                   Navigator.push(
@@ -103,13 +188,21 @@ class _UcPackagesScreenState extends State<UcPackagesScreen> {
                     MaterialPageRoute(
                       builder: (_) => PaymentScreen(
                         product: selectedPkg,
-                        gameId: _gameIdController.text.trim(),
+                        gameId: gameId,
                       ),
                     ),
                   );
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0097A7), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: const Text('Proceed to Payment', style: TextStyle(fontSize: 16)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0097A7),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Proceed to Payment',
+                  style: TextStyle(fontSize: 16),
+                ),
               ),
             ),
           ],
