@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/game_product.dart';
@@ -49,39 +50,22 @@ class _PopularityPackagesScreenState extends State<PopularityPackagesScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-
     final selectedPkg = _packages[_selectedIndex];
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('BGMI Popularity Packages'),
-        centerTitle: true,
-        backgroundColor: const Color(0xFF0097A7),
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('BGMI Popularity Packages'), centerTitle: true, backgroundColor: const Color(0xFF0097A7), foregroundColor: Colors.white),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Select Popularity Points',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const Text('Select Popularity Points', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 1.5,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.5, crossAxisSpacing: 12, mainAxisSpacing: 12),
               itemCount: _packages.length,
               itemBuilder: (context, index) {
                 final pkg = _packages[index];
@@ -90,14 +74,8 @@ class _PopularityPackagesScreenState extends State<PopularityPackagesScreen> {
                   onTap: () => setState(() => _selectedIndex = index),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF0097A7).withOpacity(0.1)
-                          : null,
-                      border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFF0097A7)
-                            : Colors.grey.shade300,
-                      ),
+                      color: isSelected ? const Color(0xFF0097A7).withOpacity(0.1) : null,
+                      border: Border.all(color: isSelected ? const Color(0xFF0097A7) : Colors.grey.shade300),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Padding(
@@ -105,18 +83,9 @@ class _PopularityPackagesScreenState extends State<PopularityPackagesScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            '${pkg.amount} pts',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                          Text('${pkg.amount} pts', style: const TextStyle(fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
-                          Text(
-                            '₹${pkg.price}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.orange,
-                            ),
-                          ),
+                          Text('₹${pkg.price}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
                         ],
                       ),
                     ),
@@ -125,38 +94,20 @@ class _PopularityPackagesScreenState extends State<PopularityPackagesScreen> {
               },
             ),
             const SizedBox(height: 24),
-
-            const Text(
-              'Enter Game ID',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const Text('Enter Game ID', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextField(
               controller: _gameIdController,
-              decoration: InputDecoration(
-                hintText: 'Your BGMI User ID',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: const Icon(Icons.person),
-              ),
+              decoration: InputDecoration(hintText: 'Your BGMI User ID', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), prefixIcon: const Icon(Icons.person)),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 16),
-
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text(
-                'Note: Popularity points will be added within 5 minutes after payment confirmation.',
-                style: TextStyle(fontSize: 12, color: Colors.brown),
-              ),
+              decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(12)),
+              child: const Text('Note: Popularity points will be added within 5 minutes after payment confirmation.', style: TextStyle(fontSize: 12, color: Colors.brown)),
             ),
             const SizedBox(height: 24),
-
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -164,31 +115,13 @@ class _PopularityPackagesScreenState extends State<PopularityPackagesScreen> {
                 onPressed: () {
                   final gameId = _gameIdController.text.trim();
                   if (gameId.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please enter Game ID')),
-                    );
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter Game ID')));
                     return;
                   }
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => PaymentScreen(
-                        product: selectedPkg,
-                        gameId: gameId,
-                      ),
-                    ),
-                  );
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentScreen(product: selectedPkg, gameId: gameId)));
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0097A7),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Proceed to Payment',
-                  style: TextStyle(fontSize: 16),
-                ),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0097A7), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                child: const Text('Proceed to Payment', style: TextStyle(fontSize: 16)),
               ),
             ),
           ],
