@@ -1,11 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import '../models/game_product.dart';
 import '../providers/order_provider.dart';
+import '../providers/wallet_provider.dart';
+import 'utr_confirmation_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
   final GameProduct product;
@@ -20,46 +21,89 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String _selectedMethod = 'upi'; // 'upi' or 'wallet'
   final String upiId = 'paynearby.8406962570@indus';
   final String upiName = 'Dream Store';
-  final double amount = 0; // will be set from product
-
-  @override
-  void initState() {
-    super.initState();
-  }
+  bool _isProcessing = false;
 
   Future<void> _payWithUPI() async {
     final uri = Uri.parse(
         'upi://pay?pa=$upiId&pn=$upiName&am=${widget.product.price}&cu=INR&tn=Payment for ${widget.product.name}');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-      // After returning, simulate order placement
-      _confirmOrder('UPI');
+      // After returning from UPI app, ask for UTR & screenshot
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => UtrConfirmationScreen(
+              product: widget.product,
+              gameId: widget.gameId,
+              amount: widget.product.price.toDouble(),
+              paymentMethod: 'UPI',
+            ),
+          ),
+        );
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No UPI app found. Please scan QR code.')));
     }
   }
 
-  void _confirmOrder(String method) {
-    Provider.of<OrderProvider>(context, listen: false).placeOrder(
-      widget.product,
-      widget.gameId,
-      method,
-      widget.product.price.toDouble(),
-    );
+  Future<void> _payWithWallet() async {
+    final wallet = Provider.of<WalletProvider>(context, listen: false);
+    final success = await wallet.deductMoney(widget.product.price.toDouble());
+    if (success) {
+      // Order placed directly (no UTR needed for wallet)
+      Provider.of<OrderProvider>(context, listen: false).placeOrder(
+        widget.product,
+        widget.gameId,
+        'Wallet',
+        widget.product.price.toDouble(),
+      );
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Payment Successful'),
+          content: Text('${widget.product.name} purchased using wallet.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.popUntil(context, (route) => route.isFirst);
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Insufficient wallet balance. Please add money.')));
+      _showAddMoneyDialog();
+    }
+  }
+
+  void _showAddMoneyDialog() {
+    final amountController = TextEditingController();
     showDialog(
       context: context,
-      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Order Placed!'),
-        content: Text('Your ${widget.product.name} will be delivered to ID ${widget.gameId} shortly.'),
+        title: const Text('Add Money to Wallet'),
+        content: TextField(
+          controller: amountController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(hintText: 'Enter amount (₹)'),
+        ),
         actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.popUntil(context, (route) => route.isFirst);
+            onPressed: () async {
+              final amount = double.tryParse(amountController.text) ?? 0;
+              if (amount > 0) {
+                await Provider.of<WalletProvider>(context, listen: false).addMoney(amount);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('₹$amount added to wallet')));
+              }
             },
-            child: const Text('OK'),
+            child: const Text('Add'),
           ),
         ],
       ),
@@ -68,9 +112,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final walletBalance = Provider.of<WalletProvider>(context).balance;
     return Scaffold(
       appBar: AppBar(title: const Text('Payment'), centerTitle: true),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,29 +125,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Product:', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(widget.product.name),
-                      ],
-                    ),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text('Product:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(widget.product.name),
+                    ]),
                     const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Game ID:', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(widget.gameId),
-                      ],
-                    ),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text('Game ID:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(widget.gameId),
+                    ]),
                     const Divider(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Total Amount:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        Text('₹${widget.product.price}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0097A7))),
-                      ],
-                    ),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text('Total Amount:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text('₹${widget.product.price}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0097A7))),
+                    ]),
                   ],
                 ),
               ),
@@ -110,27 +146,33 @@ class _PaymentScreenState extends State<PaymentScreen> {
             const SizedBox(height: 24),
             const Text('Choose Payment Method', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: ChoiceChip(
-                    label: const Text('UPI'),
-                    selected: _selectedMethod == 'upi',
-                    onSelected: (s) => setState(() => _selectedMethod = 'upi'),
-                    selectedColor: const Color(0xFF0097A7),
-                  ),
+            Row(children: [
+              Expanded(child: ChoiceChip(label: const Text('UPI'), selected: _selectedMethod == 'upi', onSelected: (s) => setState(() => _selectedMethod = 'upi'), selectedColor: const Color(0xFF0097A7))),
+              const SizedBox(width: 12),
+              Expanded(child: ChoiceChip(label: const Text('Wallet'), selected: _selectedMethod == 'wallet', onSelected: (s) => setState(() => _selectedMethod = 'wallet'), selectedColor: const Color(0xFF0097A7))),
+            ]),
+            if (_selectedMethod == 'wallet') ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Wallet Balance:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('₹$walletBalance', style: const TextStyle(color: Color(0xFF0097A7), fontWeight: FontWeight.bold)),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ChoiceChip(
-                    label: const Text('Wallet'),
-                    selected: _selectedMethod == 'wallet',
-                    onSelected: (s) => setState(() => _selectedMethod = 'wallet'),
-                    selectedColor: const Color(0xFF0097A7),
-                  ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: _showAddMoneyDialog,
+                  child: const Text('Add Money to Wallet'),
                 ),
-              ],
-            ),
+              ),
+            ],
             const SizedBox(height: 24),
             if (_selectedMethod == 'upi') ...[
               const Text('Scan QR Code with any UPI App', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -147,9 +189,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Center(
-                child: Text('UPI ID: $upiId', style: const TextStyle(fontSize: 14)),
-              ),
+              Center(child: Text('UPI ID: $upiId', style: const TextStyle(fontSize: 14))),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
@@ -161,36 +201,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0097A7), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                 ),
               ),
-            ] else ...[
-              // Wallet placeholder (demo)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      const Text('Wallet Balance: ₹0', style: TextStyle(fontSize: 16)),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add money to wallet feature coming soon')));
-                        },
-                        child: const Text('Add Money'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             ],
-            const Spacer(),
+            if (_selectedMethod == 'wallet')
+              const SizedBox(height: 16),
             if (_selectedMethod == 'wallet')
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Insufficient balance. Please add money.')));
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
+                  onPressed: _payWithWallet,
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0097A7), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                   child: const Text('Pay with Wallet'),
                 ),
               ),
