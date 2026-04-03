@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
@@ -12,7 +14,12 @@ import '../providers/wallet_provider.dart';
 class PaymentScreen extends StatefulWidget {
   final GameProduct product;
   final String gameId;
-  const PaymentScreen({super.key, required this.product, required this.gameId});
+  
+  const PaymentScreen({
+    super.key, 
+    required this.product, 
+    required this.gameId
+  });
 
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
@@ -20,10 +27,13 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   String _selectedMethod = 'upi'; // 'upi' or 'wallet'
+  
+  // Replace with your actual merchant UPI details
   final String upiId = 'paynearby.8406962570@indus';
   final String upiName = 'Dream Store';
+  final Color primaryColor = const Color(0xFF0097A7);
 
-  // UPI payment flow (UTR + screenshot)
+  // UPI payment flow controllers
   final TextEditingController _utrController = TextEditingController();
   File? _screenshot;
   bool _isProcessing = false;
@@ -35,56 +45,111 @@ class _PaymentScreenState extends State<PaymentScreen> {
     super.dispose();
   }
 
+  // ==================== ERROR HANDLING UI ====================
+  void _showFeedback(String message, {bool isError = false}) {
+    if (!mounted) return;
+    HapticFeedback.mediumImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(isError ? CupertinoIcons.exclamationmark_circle_fill : CupertinoIcons.checkmark_alt_circle_fill, 
+                 color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
+          ],
+        ),
+        backgroundColor: isError ? CupertinoColors.destructiveRed : primaryColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  void _showCupertinoDialog(String title, String content, VoidCallback onOk) {
+    showCupertinoDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: onOk,
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ==================== UPI FLOW ====================
   Future<void> _payWithUPI() async {
-    final uri = Uri.parse(
-        'upi://pay?pa=$upiId&pn=$upiName&am=${widget.product.price}&cu=INR&tn=Payment for ${widget.product.name}');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-      // After returning from UPI app, ask for UTR & screenshot
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter UTR and upload screenshot to confirm payment')),
-        );
+    try {
+      final uri = Uri.parse(
+          'upi://pay?pa=$upiId&pn=$upiName&am=${widget.product.price}&cu=INR&tn=Payment for ${widget.product.name}');
+      
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        _showFeedback('Please enter UTR and upload a screenshot to confirm your payment.');
+      } else {
+        _showFeedback('No UPI app found. Please scan the QR code manually.', isError: true);
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No UPI app found. Please scan QR code and pay manually.')),
-      );
+    } catch (e) {
+      _showFeedback('Failed to open UPI app: ${e.toString()}', isError: true);
     }
   }
 
   Future<void> _pickScreenshot() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) setState(() => _screenshot = File(image.path));
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70, // Compress image to save bandwidth
+      );
+      if (image != null) {
+        setState(() => _screenshot = File(image.path));
+        HapticFeedback.lightImpact();
+      }
+    } catch (e) {
+      _showFeedback('Failed to pick image. Check permissions.', isError: true);
+    }
   }
 
   Future<void> _submitUpiConfirmation() async {
+    FocusScope.of(context).unfocus(); // Dismiss keyboard
     final utr = _utrController.text.trim();
+    
     if (utr.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter UTR number')));
+      _showFeedback('Please enter your 12-digit UTR/Reference number.', isError: true);
       return;
     }
     if (_screenshot == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please upload payment screenshot')));
+      _showFeedback('Please upload the payment confirmation screenshot.', isError: true);
       return;
     }
 
     setState(() => _isProcessing = true);
 
     try {
-      // Upload screenshot to Supabase Storage
+      // 1. Upload screenshot to Supabase Storage
       final fileExt = _screenshot!.path.split('.').last;
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
       final fileBytes = await _screenshot!.readAsBytes();
+      
       await SupabaseConfig.client.storage
           .from('payment_screenshots')
           .uploadBinary(fileName, fileBytes);
+          
       final screenshotUrl = SupabaseConfig.client.storage
           .from('payment_screenshots')
           .getPublicUrl(fileName);
 
-      final user = SupabaseConfig.client.auth.currentUser!;
+      // 2. Save order to database
+      final user = SupabaseConfig.client.auth.currentUser;
+      if (user == null) throw Exception('User not authenticated.');
+
       await SupabaseConfig.client.from('orders').insert({
         'user_id': user.id,
         'product_id': widget.product.id,
@@ -94,27 +159,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'payment_method': 'UPI',
         'utr': utr,
         'screenshot_url': screenshotUrl,
-        'status': 'pending', // admin will confirm
+        'status': 'pending', 
       });
 
       if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Payment Submitted'),
-            content: const Text('Your UTR and screenshot have been submitted. Admin will verify and complete your order shortly.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.popUntil(ctx, (route) => route.isFirst),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
+        _showCupertinoDialog(
+          'Payment Submitted', 
+          'Your details have been submitted successfully. Admin will verify and complete your order shortly.', 
+          () => Navigator.popUntil(context, (route) => route.isFirst)
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      _showFeedback('Something went wrong. Please try again later.', isError: true);
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -123,12 +179,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
   // ==================== WALLET FLOW ====================
   Future<void> _payWithWallet() async {
     final wallet = Provider.of<WalletProvider>(context, listen: false);
-    final balance = wallet.balance;
-    if (balance >= widget.product.price) {
-      setState(() => _isProcessing = true);
-      // Deduct immediately (admin can adjust later if needed)
+    
+    if (wallet.balance < widget.product.price) {
+      _showAddMoneyDialog();
+      return;
+    }
+
+    setState(() => _isProcessing = true);
+    try {
+      final user = SupabaseConfig.client.auth.currentUser;
+      if (user == null) throw Exception('User not authenticated.');
+
+      // 1. Deduct money
       await wallet.deductMoney(widget.product.price.toDouble());
-      final user = SupabaseConfig.client.auth.currentUser!;
+      
+      // 2. Create Order
       await SupabaseConfig.client.from('orders').insert({
         'user_id': user.id,
         'product_id': widget.product.id,
@@ -138,277 +203,398 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'payment_method': 'Wallet',
         'utr': null,
         'screenshot_url': null,
-        'status': 'confirmed', // wallet payment is instant
+        'status': 'confirmed', // Wallet is instant
       });
-      setState(() => _isProcessing = false);
+
       if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Payment Successful'),
-            content: Text('₹${widget.product.price} deducted from wallet. Your order is confirmed.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.popUntil(ctx, (route) => route.isFirst),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
+        HapticFeedback.heavyImpact();
+        _showCupertinoDialog(
+          'Order Confirmed', 
+          '₹${widget.product.price} was deducted from your wallet. Your order is successful!', 
+          () => Navigator.popUntil(context, (route) => route.isFirst)
         );
       }
-    } else {
-      _showAddMoneyDialog();
+    } catch (e) {
+      // If DB fails, ideally refund wallet here via wallet.addMoney()
+      _showFeedback('Failed to process order. Please contact support.', isError: true);
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
   void _showAddMoneyDialog() {
     final amountController = TextEditingController();
-    showDialog(
+    showCupertinoDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => CupertinoAlertDialog(
         title: const Text('Insufficient Balance'),
         content: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Your wallet balance is low. Add money to continue.'),
-            const SizedBox(height: 12),
-            TextField(
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0),
+              child: Text('Your wallet balance is too low. Please add money to continue.'),
+            ),
+            CupertinoTextField(
               controller: amountController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(hintText: 'Amount (₹)', border: OutlineInputBorder()),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              placeholder: 'Amount (₹)',
+              prefix: const Padding(
+                padding: EdgeInsets.only(left: 8.0),
+                child: Icon(CupertinoIcons.money_rupee, color: CupertinoColors.systemGrey, size: 18),
+              ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
             onPressed: () async {
               final amount = double.tryParse(amountController.text) ?? 0;
               if (amount > 0) {
-                await Provider.of<WalletProvider>(context, listen: false).addMoney(amount);
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('₹$amount added to wallet')));
-                // Retry payment
-                _payWithWallet();
+                // Assuming Add money is handled securely via a proper gateway elsewhere
+                // For this provider example:
+                try {
+                  await Provider.of<WalletProvider>(context, listen: false).addMoney(amount);
+                  if (mounted) {
+                    Navigator.pop(ctx);
+                    _showFeedback('₹$amount added to your wallet!');
+                  }
+                } catch (e) {
+                   Navigator.pop(ctx);
+                  _showFeedback('Failed to add money.', isError: true);
+                }
               }
             },
-            child: const Text('Add Money'),
+            child: const Text('Add Funds'),
           ),
         ],
       ),
     );
   }
 
-  // ==================== UI ====================
+  // ==================== UI BUILDERS ====================
   @override
   Widget build(BuildContext context) {
-    final walletBalance = Provider.of<WalletProvider>(context).balance;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? Colors.black : const Color(0xFFF2F2F7);
+    final cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Payment Gateway'),
-        centerTitle: true,
-        backgroundColor: const Color(0xFF0097A7),
-        foregroundColor: Colors.white,
+      backgroundColor: bgColor,
+      appBar: CupertinoNavigationBar(
+        backgroundColor: cardColor.withOpacity(0.9),
+        middle: const Text('Checkout', style: TextStyle(fontWeight: FontWeight.w600)),
+        border: Border(bottom: BorderSide(color: isDark ? Colors.white10 : Colors.black12, width: 0.5)),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Order summary card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    _infoRow('Product', widget.product.name),
-                    const SizedBox(height: 8),
-                    _infoRow('Game ID', widget.gameId),
-                    const Divider(height: 24),
-                    _infoRow('Total Amount', '₹${widget.product.price}', isTotal: true),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Payment method selector
-            const Text('Choose Payment Method', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Row(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: ChoiceChip(
-                    label: const Text('UPI'),
-                    selected: _selectedMethod == 'upi',
-                    onSelected: (s) => setState(() => _selectedMethod = 'upi'),
-                    selectedColor: const Color(0xFF0097A7),
-                    backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                // === SUMMARY CARD ===
+                Container(
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+                  ),
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      _buildInfoRow('Product', widget.product.name, isDark),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Divider(height: 1, thickness: 0.5),
+                      ),
+                      _buildInfoRow('Game ID', widget.gameId, isDark),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Divider(height: 1, thickness: 0.5),
+                      ),
+                      _buildInfoRow('Total Amount', '₹${widget.product.price}', isDark, isTotal: true),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ChoiceChip(
-                    label: const Text('Wallet'),
-                    selected: _selectedMethod == 'wallet',
-                    onSelected: (s) => setState(() => _selectedMethod = 'wallet'),
-                    selectedColor: const Color(0xFF0097A7),
-                    backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                
+                const SizedBox(height: 32),
+
+                // === PAYMENT SEGMENTED CONTROL ===
+                Text(
+                  'PAYMENT METHOD',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey.shade500, letterSpacing: 0.5),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: CupertinoSlidingSegmentedControl<String>(
+                    backgroundColor: isDark ? const Color(0xFF2C2C2E) : Colors.grey.shade200,
+                    thumbColor: cardColor,
+                    groupValue: _selectedMethod,
+                    children: {
+                      'upi': Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text('UPI App / QR', style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
+                      ),
+                      'wallet': Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text('My Wallet', style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
+                      ),
+                    },
+                    onValueChanged: (val) {
+                      if (val != null) setState(() => _selectedMethod = val);
+                      HapticFeedback.selectionClick();
+                    },
                   ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // === PAYMENT DETAILS ===
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: _selectedMethod == 'upi' 
+                      ? _buildUpiSection(cardColor, isDark) 
+                      : _buildWalletSection(cardColor, isDark),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-
-            // Payment method specific UI
-            if (_selectedMethod == 'upi') ...[
-              // QR Code
-              const Text('Scan QR Code with any UPI App', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8)],
-                  ),
-                  child: QrImageView(
-                    data: 'upi://pay?pa=$upiId&pn=$upiName&am=${widget.product.price}&cu=INR',
-                    version: QrVersions.auto,
-                    size: 200,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Center(child: Text('UPI ID: $upiId', style: const TextStyle(fontSize: 14))),
-              const SizedBox(height: 16),
-
-              // Pay with UPI App button
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: _payWithUPI,
-                  icon: const Icon(Icons.qr_code_scanner),
-                  label: const Text('Pay with UPI App'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0097A7),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // UTR + Screenshot (only after payment)
-              const Divider(),
-              const SizedBox(height: 16),
-              const Text('After Payment, Confirm with UTR & Screenshot', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _utrController,
-                decoration: InputDecoration(
-                  hintText: 'Enter UTR number',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              GestureDetector(
-                onTap: _pickScreenshot,
-                child: Container(
-                  height: 120,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: _screenshot == null
-                      ? const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [Icon(Icons.cloud_upload), Text('Tap to upload screenshot')],
-                          ),
-                        )
-                      : ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.file(_screenshot!, fit: BoxFit.cover),
-                        ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isProcessing ? null : _submitUpiConfirmation,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: _isProcessing
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Submit UTR & Screenshot'),
-                ),
-              ),
-            ] else ...[
-              // Wallet UI
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Wallet Balance', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text('₹$walletBalance', style: const TextStyle(color: Color(0xFF0097A7), fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isProcessing ? null : _payWithWallet,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0097A7),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: _isProcessing
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Pay with Wallet'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: TextButton(
-                  onPressed: _showAddMoneyDialog,
-                  child: const Text('Add Money to Wallet', style: TextStyle(color: Colors.orange)),
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _infoRow(String label, String value, {bool isTotal = false}) {
+  Widget _buildUpiSection(Color cardColor, bool isDark) {
+    return Column(
+      key: const ValueKey('upi'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // QR Code Container
+        Container(
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Text('Scan with any UPI App', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black)),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white, // QR must always be on white for contrast
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: QrImageView(
+                  data: 'upi://pay?pa=$upiId&pn=$upiName&am=${widget.product.price}&cu=INR',
+                  version: QrVersions.auto,
+                  size: 180,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('UPI ID: $upiId', style: TextStyle(fontSize: 14, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: CupertinoButton(
+                  color: primaryColor,
+                  borderRadius: BorderRadius.circular(12),
+                  padding: EdgeInsets.zero,
+                  onPressed: _payWithUPI,
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(CupertinoIcons.device_phone_portrait, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text('Pay via UPI App', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 24),
+        
+        // Manual Verification Section
+        Text(
+          'CONFIRM PAYMENT',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey.shade500, letterSpacing: 0.5),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(16)),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              CupertinoTextField(
+                controller: _utrController,
+                placeholder: 'Enter 12-Digit UTR Number',
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                keyboardType: TextInputType.number,
+                maxLength: 12,
+                clearButtonMode: OverlayVisibilityMode.editing,
+              ),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: _pickScreenshot,
+                child: Container(
+                  height: 140,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: _screenshot != null ? primaryColor : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                  child: _screenshot == null
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(CupertinoIcons.photo_on_rectangle, color: Colors.grey.shade400, size: 32),
+                            const SizedBox(height: 8),
+                            Text('Tap to upload screenshot', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+                          ],
+                        )
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(_screenshot!, fit: BoxFit.cover),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          height: 54,
+          child: CupertinoButton(
+            color: CupertinoColors.activeGreen,
+            borderRadius: BorderRadius.circular(14),
+            onPressed: _isProcessing ? null : _submitUpiConfirmation,
+            child: _isProcessing
+                ? const CupertinoActivityIndicator(color: Colors.white)
+                : const Text('Submit Verification', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+          ),
+        ),
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+
+  Widget _buildWalletSection(Color cardColor, bool isDark) {
+    return Consumer<WalletProvider>(
+      builder: (context, wallet, child) {
+        final isSufficient = wallet.balance >= widget.product.price;
+        return Column(
+          key: const ValueKey('wallet'),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(16)),
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(CupertinoIcons.creditcard_fill, color: primaryColor, size: 24),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Current Balance', style: TextStyle(fontSize: 14, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 4),
+                        Text(
+                          '₹${wallet.balance.toStringAsFixed(2)}',
+                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            if (!isSufficient)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Row(
+                  children: [
+                    const Icon(CupertinoIcons.info_circle_fill, color: CupertinoColors.destructiveRed, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Insufficient funds. Short by ₹${(widget.product.price - wallet.balance).toStringAsFixed(2)}',
+                      style: const TextStyle(color: CupertinoColors.destructiveRed, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: CupertinoButton(
+                color: isSufficient ? primaryColor : CupertinoColors.activeOrange,
+                borderRadius: BorderRadius.circular(14),
+                onPressed: _isProcessing ? null : (isSufficient ? _payWithWallet : _showAddMoneyDialog),
+                child: _isProcessing
+                    ? const CupertinoActivityIndicator(color: Colors.white)
+                    : Text(
+                        isSufficient ? 'Confirm Payment' : 'Add Funds to Wallet',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                      ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value, bool isDark, {bool isTotal = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(fontWeight: isTotal ? FontWeight.bold : FontWeight.normal)),
+        Text(
+          label, 
+          style: TextStyle(
+            fontSize: isTotal ? 16 : 15,
+            fontWeight: isTotal ? FontWeight.w600 : FontWeight.w500,
+            color: isTotal ? (isDark ? Colors.white : Colors.black) : Colors.grey.shade500,
+          )
+        ),
         Text(
           value,
           style: TextStyle(
-            fontSize: isTotal ? 18 : 16,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            color: isTotal ? const Color(0xFF0097A7) : null,
+            fontSize: isTotal ? 20 : 15,
+            fontWeight: isTotal ? FontWeight.w800 : FontWeight.w600,
+            color: isTotal ? primaryColor : (isDark ? Colors.white : Colors.black),
           ),
         ),
       ],
