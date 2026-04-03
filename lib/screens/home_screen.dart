@@ -34,13 +34,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Banner carousel
   final List<String> bannerImages = [
-    'https://picsum.photos/id/1015/400/200',
-    'https://picsum.photos/id/1018/400/200',
-    'https://picsum.photos/id/104/400/200',
+    'https://picsum.photos/id/1015/800/400',
+    'https://picsum.photos/id/1018/800/400',
+    'https://picsum.photos/id/104/800/400',
   ];
   final PageController _bannerController = PageController();
   int _currentBanner = 0;
   Timer? _bannerTimer;
+
+  // Brand Color
+  final Color primaryColor = const Color(0xFF0097A7);
 
   @override
   void initState() {
@@ -58,13 +61,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startBannerAutoPlay() {
-    _bannerTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+    _bannerTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
       if (_bannerController.hasClients) {
         final nextPage = (_currentBanner + 1) % bannerImages.length;
         _bannerController.animateToPage(
           nextPage,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.fastOutSlowIn,
         );
       }
     });
@@ -75,10 +78,13 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       LocationPermission permission = await Geolocator.requestPermission();
       if (permission != LocationPermission.denied) {
-        Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.best);
-        List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+        Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.best);
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+            position.latitude, position.longitude);
         if (placemarks.isNotEmpty) {
-          setState(() => location = '${placemarks[0].locality ?? ''}, ${placemarks[0].subAdministrativeArea ?? ''}');
+          setState(() => location =
+              '${placemarks[0].locality ?? ''}, ${placemarks[0].subAdministrativeArea ?? ''}');
         }
       } else {
         setState(() => location = 'Location permission denied');
@@ -91,195 +97,423 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _fetchProducts() async {
-    final response = await SupabaseConfig.client
-        .from('products')
-        .select();
-    final List<dynamic> data = response;
-    final uc = <GameProduct>[];
-    final pop = <GameProduct>[];
-    for (var item in data) {
-      final product = GameProduct(
-        id: item['id'],
-        name: item['name'],
-        type: item['type'],
-        amount: item['amount'],
-        price: item['price'],
-        bonus: item['bonus'],
-      );
-      if (item['type'] == 'uc') uc.add(product);
-      else pop.add(product);
+    // Simulated fetch or actual Supabase fetch
+    try {
+      final response = await SupabaseConfig.client.from('products').select();
+      final List<dynamic> data = response;
+      final uc = <GameProduct>[];
+      final pop = <GameProduct>[];
+      for (var item in data) {
+        final product = GameProduct(
+          id: item['id'],
+          name: item['name'],
+          type: item['type'],
+          amount: item['amount'],
+          price: item['price'],
+          bonus: item['bonus'],
+        );
+        if (item['type'] == 'uc') {
+          uc.add(product);
+        } else {
+          pop.add(product);
+        }
+      }
+      setState(() {
+        _ucProducts = uc;
+        _popularityProducts = pop;
+        _loadingProducts = false;
+      });
+    } catch (e) {
+      setState(() => _loadingProducts = false);
     }
-    setState(() {
-      _ucProducts = uc;
-      _popularityProducts = pop;
-      _loadingProducts = false;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // iOS System Background Colors
+    final bgColor = isDark ? Colors.black : const Color(0xFFF2F2F7);
+
     return Scaffold(
-      body: SafeArea(
-        child: IndexedStack(
-          index: _currentIndex,
-          children: [
-            // Home content
-            _loadingProducts
-                ? const Center(child: CircularProgressIndicator())
-                : _buildHomeContent(isDark),
-            const ChatListScreen(),
-            const RedeemScreen(),
-            const OrdersScreen(),
-            const ProfileScreen(),
-          ],
-        ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        selectedItemColor: const Color(0xFF0097A7),
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(CupertinoIcons.house), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(CupertinoIcons.chat_bubble), label: 'Chat'),
-          BottomNavigationBarItem(icon: Icon(CupertinoIcons.gift), label: 'Redeem'),
-          BottomNavigationBarItem(icon: Icon(CupertinoIcons.list_bullet), label: 'Orders'),
-          BottomNavigationBarItem(icon: Icon(CupertinoIcons.person), label: 'Profile'),
+      backgroundColor: bgColor,
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          _loadingProducts
+              ? const Center(child: CupertinoActivityIndicator(radius: 16))
+              : _buildHomeContent(isDark),
+          const ChatListScreen(),
+          const RedeemScreen(),
+          const OrdersScreen(),
+          const ProfileScreen(),
         ],
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
+              width: 0.5,
+            ),
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+            child: BottomNavigationBar(
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              type: BottomNavigationBarType.fixed,
+              currentIndex: _currentIndex,
+              onTap: (index) => setState(() => _currentIndex = index),
+              selectedItemColor: primaryColor,
+              unselectedItemColor: Colors.grey.shade500,
+              selectedFontSize: 11,
+              unselectedFontSize: 11,
+              selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: Icon(CupertinoIcons.house_fill),
+                  ),
+                  activeIcon: Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: Icon(CupertinoIcons.house_fill),
+                  ),
+                  label: 'Home',
+                ),
+                BottomNavigationBarItem(
+                  icon: Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: Icon(CupertinoIcons.chat_bubble_2),
+                  ),
+                  activeIcon: Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: Icon(CupertinoIcons.chat_bubble_2_fill),
+                  ),
+                  label: 'Chat',
+                ),
+                BottomNavigationBarItem(
+                  icon: Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: Icon(CupertinoIcons.gift),
+                  ),
+                  activeIcon: Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: Icon(CupertinoIcons.gift_fill),
+                  ),
+                  label: 'Redeem',
+                ),
+                BottomNavigationBarItem(
+                  icon: Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: Icon(CupertinoIcons.doc_text),
+                  ),
+                  activeIcon: Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: Icon(CupertinoIcons.doc_text_fill),
+                  ),
+                  label: 'Orders',
+                ),
+                BottomNavigationBarItem(
+                  icon: Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: Icon(CupertinoIcons.person_crop_circle),
+                  ),
+                  activeIcon: Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: Icon(CupertinoIcons.person_crop_circle_fill),
+                  ),
+                  label: 'Profile',
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildHomeContent(bool isDark) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: const Color(0xFF0097A7).withOpacity(0.2),
-                  child: const Icon(Icons.store, color: Color(0xFF0097A7)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Dream Store', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                      Text('24/7 Support', style: TextStyle(color: Colors.grey.shade600)),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-                  onPressed: () async {
-                    themeNotifier.value = !themeNotifier.value;
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setBool('isDark', themeNotifier.value);
-                  },
-                ),
-              ],
-            ),
-          ),
-          // Location
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
+    return SafeArea(
+      bottom: false,
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(), // Important for iOS feel
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 10),
+            // Custom Premium Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Row(
                 children: [
-                  const Icon(Icons.location_on_outlined, size: 18),
-                  const SizedBox(width: 8),
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(14), // Squircle
+                    ),
+                    child: Icon(CupertinoIcons.game_controller_solid,
+                        color: primaryColor, size: 26),
+                  ),
+                  const SizedBox(width: 14),
                   Expanded(
-                    child: Text(
-                      _loadingLocation ? 'Updating...' : location,
-                      style: const TextStyle(fontSize: 13),
-                      overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Dream Store',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Premium Gaming Needs',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, size: 18),
-                    onPressed: _getCurrentLocation,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                  GestureDetector(
+                    onTap: () async {
+                      themeNotifier.value = !themeNotifier.value;
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('isDark', themeNotifier.value);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey.shade900 : Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: Icon(
+                        isDark ? CupertinoIcons.sun_max_fill : CupertinoIcons.moon_stars_fill,
+                        size: 20,
+                        color: isDark ? Colors.amber : primaryColor,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
-          // Banner Carousel
-          SizedBox(
-            height: 180,
-            child: Stack(
-              alignment: Alignment.bottomCenter,
-              children: [
-                PageView.builder(
-                  controller: _bannerController,
-                  onPageChanged: (index) => setState(() => _currentBanner = index),
-                  itemCount: bannerImages.length,
-                  itemBuilder: (context, index) => ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      bannerImages[index],
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      errorBuilder: (_, __, ___) => Container(color: Colors.grey),
-                    ),
-                  ),
+            
+            // Location Pill (Sleek iOS style)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    )
+                  ],
                 ),
-                Positioned(
-                  bottom: 8,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      bannerImages.length,
-                      (index) => AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: _currentBanner == index ? 20 : 8,
-                        height: 8,
+                child: Row(
+                  children: [
+                    Icon(CupertinoIcons.location_solid, 
+                        size: 18, color: primaryColor.withOpacity(0.8)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _loadingLocation ? 'Detecting your location...' : location,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _getCurrentLocation,
+                      child: _loadingLocation 
+                        ? const SizedBox(
+                            width: 16, 
+                            height: 16, 
+                            child: CupertinoActivityIndicator(radius: 8))
+                        : Icon(CupertinoIcons.arrow_2_circlepath, 
+                            size: 18, color: Colors.grey.shade500),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            // Banner Carousel
+            SizedBox(
+              height: 170,
+              child: Stack(
+                alignment: Alignment.bottomCenter,
+                children: [
+                  PageView.builder(
+                    controller: _bannerController,
+                    physics: const BouncingScrollPhysics(),
+                    onPageChanged: (index) => setState(() => _currentBanner = index),
+                    itemCount: bannerImages.length,
+                    itemBuilder: (context, index) => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Container(
                         decoration: BoxDecoration(
-                          color: _currentBanner == index ? const Color(0xFF0097A7) : Colors.grey.withOpacity(0.6),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 15,
+                              offset: const Offset(0, 8),
+                            )
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Image.network(
+                            bannerImages[index],
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorBuilder: (_, __, ___) => Container(
+                                color: isDark ? Colors.grey.shade800 : Colors.grey.shade300),
+                          ),
                         ),
                       ),
                     ),
                   ),
+                  Positioned(
+                    bottom: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          bannerImages.length,
+                          (index) => AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            width: _currentBanner == index ? 16 : 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: _currentBanner == index ? Colors.white : Colors.white54,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
+            // BGMI UC Section
+            _buildProductSection('BGMI UC', _ucProducts, isDark),
+            
+            const SizedBox(height: 24),
+            
+            // BGMI Popularity Section
+            _buildProductSection('BGMI Popularity', _popularityProducts, isDark),
+            
+            const SizedBox(height: 24),
+
+            // Contact Card (iOS Grouped Style)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    )
+                  ],
                 ),
-              ],
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () => Navigator.push(context, 
+                        CupertinoPageRoute(builder: (_) => const ContactScreen())),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(CupertinoIcons.headphones, color: primaryColor),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '24/7 Premium Support',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? Colors.white : Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Get help with your orders anytime',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(CupertinoIcons.chevron_forward, 
+                              color: Colors.grey.shade400, size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          // BGMI UC Section
-          _buildProductSection('BGMI UC', _ucProducts, isDark),
-          const SizedBox(height: 20),
-          // BGMI Popularity Section
-          _buildProductSection('BGMI Popularity', _popularityProducts, isDark),
-          const SizedBox(height: 20),
-          // Contact Card
-          Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: ListTile(
-              leading: const Icon(Icons.headset_mic, color: Color(0xFF0097A7)),
-              title: const Text('Contact Us'),
-              subtitle: const Text('24/7 Support - Dream Store'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactScreen())),
-            ),
-          ),
-          const SizedBox(height: 20),
-        ],
+            const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }
@@ -287,79 +521,148 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildProductSection(String title, List<GameProduct> products, bool isDark) {
     if (products.isEmpty) return const SizedBox.shrink();
     final isUc = title == 'BGMI UC';
+    
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              TextButton(
-                onPressed: () {
-                  if (isUc) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => UcPackagesScreen(initialProducts: products)),
-                    );
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => PopularityPackagesScreen(initialProducts: products)),
-                    );
-                  }
+              Text(
+                title, 
+                style: TextStyle(
+                  fontSize: 20, 
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                  color: isDark ? Colors.white : Colors.black87,
+                )
+              ),
+              GestureDetector(
+                onTap: () {
+                  final screen = isUc 
+                      ? UcPackagesScreen(initialProducts: products)
+                      : PopularityPackagesScreen(initialProducts: products);
+                  Navigator.push(context, CupertinoPageRoute(builder: (_) => screen));
                 },
-                child: const Text('View All >', style: TextStyle(color: Color(0xFF0097A7))),
+                child: Text(
+                  'See All', 
+                  style: TextStyle(
+                    fontSize: 14, 
+                    fontWeight: FontWeight.w600, 
+                    color: primaryColor
+                  )
+                ),
               ),
             ],
           ),
         ),
+        const SizedBox(height: 16),
         SizedBox(
-          height: 120,
+          height: 145,
           child: ListView.builder(
+            physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
             itemCount: products.length,
             itemBuilder: (context, index) {
               final pkg = products[index];
               return GestureDetector(
                 onTap: () {
-                  if (isUc) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => UcPackagesScreen(initialProducts: products)),
-                    );
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => PopularityPackagesScreen(initialProducts: products)),
-                    );
-                  }
+                  final screen = isUc 
+                      ? UcPackagesScreen(initialProducts: products)
+                      : PopularityPackagesScreen(initialProducts: products);
+                  Navigator.push(context, CupertinoPageRoute(builder: (_) => screen));
                 },
                 child: Container(
                   width: 140,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.grey.shade800 : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+                    color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      )
+                    ],
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Stack(
                     children: [
-                      Text(pkg.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${pkg.amount} ${isUc ? 'UC' : 'pts'}',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: isUc ? const Color(0xFF0097A7) : Colors.orange,
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.grey.shade800 : const Color(0xFFF2F2F7),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                pkg.name, 
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const Spacer(),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '${pkg.amount}',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -1,
+                                    color: isUc ? primaryColor : Colors.orange.shade600,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 3),
+                                  child: Text(
+                                    isUc ? 'UC' : 'pts',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: isUc ? primaryColor : Colors.orange.shade600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '₹${pkg.price}', 
+                              style: TextStyle(
+                                fontSize: 16, 
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text('₹${pkg.price}', style: const TextStyle(fontSize: 14)),
+                      // Optional: A subtle gradient or icon overlay in the corner could go here
+                      Positioned(
+                        right: -10,
+                        bottom: -10,
+                        child: Icon(
+                          isUc ? CupertinoIcons.money_dollar_circle_fill : CupertinoIcons.flame_fill,
+                          size: 70,
+                          color: (isUc ? primaryColor : Colors.orange).withOpacity(0.05),
+                        ),
+                      )
                     ],
                   ),
                 ),
@@ -378,8 +681,11 @@ class ContactScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Contact Us'), centerTitle: true),
-      body: const Center(child: Text('Contact info here')),
+      appBar: CupertinoNavigationBar(
+        middle: const Text('Contact Us'),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      ),
+      body: const Center(child: Text('Premium Contact Support')),
     );
   }
 }
