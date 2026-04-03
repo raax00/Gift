@@ -240,7 +240,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               placeholder: 'Amount (₹)',
               prefix: const Padding(
                 padding: EdgeInsets.only(left: 8.0),
-                child: Icon(CupertinoIcons.money_rupee, color: CupertinoColors.systemGrey, size: 18),
+                child: Icon(Icons.currency_rupee, color: CupertinoColors.systemGrey, size: 18), // FIXED HERE ✅
               ),
             ),
           ],
@@ -256,8 +256,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
             onPressed: () async {
               final amount = double.tryParse(amountController.text) ?? 0;
               if (amount > 0) {
-                // Assuming Add money is handled securely via a proper gateway elsewhere
-                // For this provider example:
                 try {
                   await Provider.of<WalletProvider>(context, listen: false).addMoney(amount);
                   if (mounted) {
