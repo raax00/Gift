@@ -1,5 +1,5 @@
 name: share_app
-description: A gaming top-up store
+description: A gaming top-up store with Supabase backend
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  supabase_flutter: ^2.0.0           # Supabase
   provider: ^6.1.1
   shared_preferences: ^2.2.2
   geolocator: ^10.1.0
@@ -17,10 +18,12 @@ dependencies:
   cupertino_icons: ^1.0.6
   qr_flutter: ^4.1.0
   url_launcher: ^6.2.5
-  image_picker: ^1.0.5          # for picking screenshots
-  dio: ^5.4.0                   # for Cloudinary upload
-  http: ^1.2.0                  # fallback for upload
-  permission_handler: ^11.0.0  # for camera/gallery permissions
+  image_picker: ^1.0.5
+  dio: ^5.4.0
+  http: ^1.2.0
+  permission_handler: ^11.0.0
+  package_info_plus: ^5.0.1          # In-app update
+  upgrader: ^10.0.0                  # App update prompts
 
 dev_dependencies:
   flutter_test:
