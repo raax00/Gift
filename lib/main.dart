@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:upgrader/upgrader.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_config.dart';
 import 'providers/cart_provider.dart';
 import 'providers/chat_provider.dart';
@@ -23,12 +22,16 @@ void main() async {
 }
 
 Future<void> _checkMaintenanceMode() async {
-  final response = await SupabaseConfig.client
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'maintenance_mode')
-      .single();
-  maintenanceMode.value = response['value'] == 'true';
+  try {
+    final response = await SupabaseConfig.client
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'maintenance_mode')
+        .maybeSingle();
+    maintenanceMode.value = response != null && response['value'] == 'true';
+  } catch (e) {
+    maintenanceMode.value = false;
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -70,13 +73,7 @@ class MyApp extends StatelessWidget {
                 ),
                 home: isMaintenance
                     ? const MaintenanceScreen()
-                    : UpgradeAlert(
-                        upgrader: Upgrader(
-                          appCastUrl: 'https://your-domain.com/appcast.xml',
-                          debugLogging: true,
-                        ),
-                        child: SplashScreen(prefs: prefs),
-                      ),
+                    : SplashScreen(prefs: prefs),
               );
             },
           );
@@ -95,11 +92,11 @@ class MaintenanceScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.build, size: 80, color: Colors.orange),
-            SizedBox(height: 20),
-            Text('Under Maintenance', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            SizedBox(height: 10),
-            Text('We are improving your experience. Please check back soon.'),
+            const Icon(Icons.build, size: 80, color: Colors.orange),
+            const SizedBox(height: 20),
+            const Text('Under Maintenance', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            const Text('We are improving your experience. Please check back soon.'),
           ],
         ),
       ),
