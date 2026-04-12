@@ -10,7 +10,7 @@ import '../supabase_config.dart';
 import '../models/game_product.dart';
 import 'uc_packages_screen.dart';
 import 'popularity_packages_screen.dart';
-import 'contact_screen.dart';   // ✅ Real ContactScreen import
+import 'contact_screen.dart';   
 import 'orders_screen.dart';
 import 'profile_screen.dart';
 import 'chat_list_screen.dart';
@@ -103,7 +103,6 @@ class _HomeScreenState extends State<HomeScreen>
     if (!mounted) return;
     setState(() => _loadingLocation = true);
     try {
-      // Check service enabled
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (mounted) setState(() => _location = 'Location service off');
@@ -159,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen>
       final response = await SupabaseConfig.client
           .from('products')
           .select()
-          .order('price', ascending: true); // Cheapest first
+          .order('price', ascending: true);
 
       final List<dynamic> data = response as List<dynamic>;
       final uc = <GameProduct>[];
@@ -171,8 +170,10 @@ class _HomeScreenState extends State<HomeScreen>
           name: item['name']?.toString() ?? '',
           type: item['type']?.toString() ?? '',
           amount: (item['amount'] as num?)?.toInt() ?? 0,
-          price: (item['price'] as num?)?.toDouble() ?? 0.0,
-          bonus: (item['bonus'] as num?)?.toInt() ?? 0,
+          // ✅ FIX 1: Cast price to int instead of double
+          price: (item['price'] as num?)?.toInt() ?? 0,
+          // ✅ FIX 2: Cast bonus to String since the model expects a String?
+          bonus: item['bonus']?.toString(), 
         );
         if (item['type'] == 'uc') {
           uc.add(product);
@@ -417,7 +418,7 @@ class _HomeScreenState extends State<HomeScreen>
           if (_ucProducts.isEmpty && _popularityProducts.isEmpty)
             _buildEmptyProductsState(isDark),
 
-          // ── Support Card (Navigates to ContactScreen) ─────────────────────
+          // ── Support Card ─────────────────────
           _buildSupportCard(cardColor, isDark),
 
           const SizedBox(height: 40),
@@ -432,7 +433,6 @@ class _HomeScreenState extends State<HomeScreen>
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Row(
         children: [
-          // App Logo
           Container(
             width: 48,
             height: 48,
@@ -469,7 +469,6 @@ class _HomeScreenState extends State<HomeScreen>
               ],
             ),
           ),
-          // Dark / Light Mode Toggle
           GestureDetector(
             onTap: () async {
               HapticFeedback.lightImpact();
@@ -598,7 +597,6 @@ class _HomeScreenState extends State<HomeScreen>
                                   size: 32, color: Colors.grey)),
                         ),
                       ),
-                      // Gradient overlay
                       Positioned(
                         bottom: 0,
                         left: 0,
@@ -634,7 +632,6 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
           ),
-          // Dot Indicators
           Positioned(
             bottom: 10,
             right: 30,
@@ -691,7 +688,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  // ── Support Card → ContactScreen ✅ ───────────────────────────────────────
+  // ── Support Card → ContactScreen ───────────────────────────────────────
   Widget _buildSupportCard(Color cardColor, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -712,7 +709,6 @@ class _HomeScreenState extends State<HomeScreen>
           borderRadius: BorderRadius.circular(20),
           child: InkWell(
             borderRadius: BorderRadius.circular(20),
-            // ✅ Navigates to real ContactScreen from contact_screen.dart
             onTap: () {
               HapticFeedback.lightImpact();
               Navigator.push(
@@ -726,7 +722,6 @@ class _HomeScreenState extends State<HomeScreen>
               padding: const EdgeInsets.all(18),
               child: Row(
                 children: [
-                  // Icon
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -737,7 +732,6 @@ class _HomeScreenState extends State<HomeScreen>
                         color: primaryColor, size: 24),
                   ),
                   const SizedBox(width: 16),
-                  // Text
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -761,7 +755,6 @@ class _HomeScreenState extends State<HomeScreen>
                       ],
                     ),
                   ),
-                  // Chevron
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
@@ -793,7 +786,6 @@ class _HomeScreenState extends State<HomeScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section Header
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
@@ -851,8 +843,6 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
         const SizedBox(height: 16),
-
-        // Product Cards Horizontal List
         SizedBox(
           height: 148,
           child: ListView.builder(
@@ -876,6 +866,9 @@ class _HomeScreenState extends State<HomeScreen>
     List<GameProduct> allProducts,
   ) {
     final accentColor = isUc ? primaryColor : Colors.orange.shade600;
+
+    // ✅ FIX 3: Safely parse String bonus to int for condition checking
+    final bonusValue = int.tryParse(pkg.bonus ?? '0') ?? 0;
 
     return GestureDetector(
       onTap: () {
@@ -907,7 +900,6 @@ class _HomeScreenState extends State<HomeScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Package name badge
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 4),
@@ -927,7 +919,6 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                   const Spacer(),
-                  // Amount
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -955,17 +946,16 @@ class _HomeScreenState extends State<HomeScreen>
                     ],
                   ),
                   const SizedBox(height: 2),
-                  // Price
+                  // Updated price formatter since it's an int now
                   Text(
-                    '₹${pkg.price % 1 == 0 ? pkg.price.toInt() : pkg.price}',
+                    '₹${pkg.price}',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: isDark ? Colors.white : Colors.black87,
                     ),
                   ),
-                  // Bonus tag
-                  if ((pkg.bonus ?? 0) > 0)
+                  if (bonusValue > 0)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Container(
@@ -988,7 +978,6 @@ class _HomeScreenState extends State<HomeScreen>
                 ],
               ),
             ),
-            // Decorative background icon
             Positioned(
               right: -10,
               bottom: -10,
